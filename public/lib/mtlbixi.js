@@ -143,7 +143,10 @@ $(function(){
             }
             
             if (stations[station.id]) {
-              var changed = false;
+              var changed = false
+                , now = new Date()
+                , zeropad = function(n) { return n < 10 ? '0' + n : n; }
+                , timestamp = zeropad(now.getHours()) + ":" + zeropad(now.getMinutes());
               
               if (old.locked != station.locked) {
                 marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
@@ -160,6 +163,8 @@ $(function(){
               }
               
               if (changed) {
+                changed = timestamp + ': ' + changed;
+                
                 // Limit history to 5 elements and shift updates unto beginning
                 station.history.unshift(changed);
                 station.history = station.history.slice(0, 5);
