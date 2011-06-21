@@ -151,10 +151,8 @@ $(function(){
               }
               if (old.bikes != station.bikes || old.free != station.free) {
                 marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
-                if (old.bikes > station.bikes)
-                  changed = (old.bikes - station.bikes) + " were checked out.";
-                else
-                  changed = (station.bikes - old.bikes) + " were checked in.";
+                var diff = station.bikes - old.bikes;
+                changed = (diff > 0 ? diff : -diff) + " bike" + (diff * diff > 1 ? "s" : "") + " were checked " + (diff > 0 ? "in" : "out");
               }
               if (old.loc.lat != station.loc.lat || old.loc.lng != station.loc.lng) {
                 marker.setPosition(new google.maps.LatLng(station.loc.lat, station.loc.lng));
