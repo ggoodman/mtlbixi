@@ -146,7 +146,7 @@ $(function(){
   
   jQuery.when(fetchLocation(), fetchMarkers()).then(init);
   
-  setTimeout(function() {
+  setInterval(function() {
     jQuery.when(fetchMarkers()).then(renderMarkers);
   }, 1000 * 60); // Re-fetch every minute
 
