@@ -1,8 +1,9 @@
 express = require 'express'
+resource = require 'express-resource'
 app = module.exports = express.createServer()
 
 settings = require './settings'
-
+###
 mongoose = require 'mongoose'
 mongoose.connect settings.mongodb.server
 
@@ -45,6 +46,7 @@ fetcher.on 'station', (station) ->
 
 #setInterval fetcher.fetch, 1000 * 60 * 60
 fetcher.fetch()
+###
 
 app.configure ->
   app.set 'views', __dirname + '/views'
@@ -53,7 +55,5 @@ app.configure ->
 
 app.get '/', (req, res) ->
   res.render "index"
-
-app.get '/stations.json', (req, res) ->
-  Station.find {}, ['id', 'loc', 'name', 'bikes', 'free'], (err, docs) ->
-    res.send JSON.stringify(doc.toObject() for doc in docs)
+  
+app.resource 'stations', require('./controllers/stations')
