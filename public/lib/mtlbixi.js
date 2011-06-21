@@ -53,6 +53,7 @@ $(function(){
   };
   
   var fetchMarkers = function() {
+    console.log("Fetching markers");
     return jQuery.Deferred(function(deferred){
       
       jQuery.ajax({
