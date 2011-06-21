@@ -7,6 +7,8 @@ $(function(){
   
   var map = new google.maps.Map(document.getElementById("map_canvas"), options);
   var markers = {};
+  var stations = {};
+  var windows = {};
   var location = null;
 
   //var bikeLayer = new google.maps.BicyclingLayer();
@@ -99,25 +101,41 @@ $(function(){
             type: 'poly'
           };            
           jQuery.each(data, function(i, station) {
-
-            var marker = new google.maps.Marker({
-              icon: station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull),
-              shadow: markerShadow,
-              shape: markerShape,
-              position: new google.maps.LatLng(station.loc.lat, station.loc.lng), 
-              map: null, 
-              title: station.name
-            });
+            var marker = markers[station.id];
             
-            google.maps.event.addListener(marker, 'click', function() {
-              var info = new google.maps.InfoWindow({
-                content: "<strong>" + station.name + "</strong><p>Bikes: " + station.bikes + " / " + (station.bikes + station.free) + "</p>"
+            if (!marker) {
+              marker = markers[station.id] = new google.maps.Marker({
+                icon: station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull),
+                shadow: markerShadow,
+                shape: markerShape,
+                position: new google.maps.LatLng(station.loc.lat, station.loc.lng), 
+                map: null, 
+                title: station.name
               });
               
-              info.open(map, marker);
-            });
+              google.maps.event.addListener(marker, 'click', function() {
+                var info = windows[station.id] = new google.maps.InfoWindow({
+                  content: "<strong>" + station.name + "</strong><p>Bikes: " + station.bikes + " / " + (station.bikes + station.free) + "</p>"
+                });
+                
+                info.open(map, marker);
+              });
+            }
             
-            markers[station.id] = marker;
+            if (stations[station.id] && stations[station.id] != station) {
+              marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
+              marker.setPosition(new google.maps.LatLng(station.loc.lat, station.loc.lng));
+              marker.setAnimation(google.maps.Animation.BOUNCE);
+              
+              // Update the info window contents
+              windows[station.id].setContent("<strong>" + station.name + "</strong><p>Bikes: " + station.bikes + " / " + (station.bikes + station.free) + "</p>");
+            } else {
+              // Stop any outstanding animations
+              markers[station.id].setAnimation(null);
+            }
+
+            // Update stations with new info
+            stations[station.id] = station;
           });
           deferred.resolve();
         }
