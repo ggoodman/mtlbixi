@@ -162,7 +162,9 @@ $(function(){
               if (changed) {
                 if (!station.history) station.history = [];
                 
-                station.history.push(changed);
+                // Limit history to 5 elements and shift updates unto beginning
+                station.history.unshift(changed);
+                station.history.splice(0, 5);
                 
                 info.setContent(buildContent(station));
                 console.log(changed);
