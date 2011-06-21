@@ -10,9 +10,6 @@ class StationFetcher extends events.EventEmitter
       port: 80
       path: "/data/bikeStations.xml"
 
-    @interval = setInterval @fetch, 1000 * 60 * 30 #Every 30 minutes
-    @fetch() #Fetch the first one now
-
   fetch: =>
     self = this
     parser = new xml2js.Parser

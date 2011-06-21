@@ -12,9 +12,9 @@ models.initModels(mongoose)
 Station = mongoose.model('Station')
 
 Fetcher = require './fetcher'
-
 fetcher = new Fetcher
-  interval: 30 # minutes
+
+###
 fetcher.on 'station', (station) ->
   addHistory = (record) ->
     record.history.push
@@ -39,10 +39,18 @@ fetcher.on 'station', (station) ->
       record.save (err) ->
         addHistory(record) unless err
 
+setInterval fetcher.fetch, 1000 * 60 * 60
+fetcher.fetch()
+###
+
 app.configure ->
   app.set 'views', __dirname + '/views'
   app.set 'view engine', 'jade'
-
+  app.use express.static(__dirname + '/public')
 
 app.get '/', (req, res) ->
-  res.send "Hello world"
+  res.render "index"
+
+app.get '/stations.json', (req, res) ->
+  Station.find {}, (err, docs) ->
+    res.send JSON.stringify(doc.toObject() for doc in docs)
