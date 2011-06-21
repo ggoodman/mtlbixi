@@ -15,6 +15,7 @@ exports.index = (req, res) ->
       stations.push
         id: parseInt(station.id)
         name: station.name
+        locked: station.locked == "true"
         loc:
           lat: parseFloat(station.lat)
           lng: parseFloat(station.long)

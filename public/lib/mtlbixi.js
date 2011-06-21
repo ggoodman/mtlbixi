@@ -81,6 +81,12 @@ $(function(){
             markerTopLeft,
             markerBottomRight
           );
+          var markerLocked = new google.maps.MarkerImage(
+            '/img/marker-disabled.png',
+            markerSize,
+            markerTopLeft,
+            markerBottomRight
+          );
           var markerShadow = new google.maps.MarkerImage(
             '/img/marker-shadow.png',
             new google.maps.Size(46,23),
@@ -94,7 +100,7 @@ $(function(){
           jQuery.each(data, function(i, station) {
 
             var marker = new google.maps.Marker({
-              icon: station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull,
+              icon: station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull),
               shadow: markerShadow,
               shape: markerShape,
               position: new google.maps.LatLng(station.loc.lat, station.loc.lng), 
