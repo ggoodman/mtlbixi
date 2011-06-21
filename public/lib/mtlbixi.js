@@ -29,7 +29,6 @@ $(function(){
   };
   
   var init = function(location) {
-    console.log("Location", location);
     google.maps.event.addListener(map, 'idle', renderMarkers);
     map.setCenter(location);
     
@@ -55,7 +54,7 @@ $(function(){
   };
   
   var fetchMarkers = function() {
-    console.log("Fetching markers");
+    console.log("Fetching markers", new Date());
     return jQuery.Deferred(function(deferred){
       
       jQuery.ajax({
@@ -103,6 +102,9 @@ $(function(){
           jQuery.each(data, function(i, station) {
             var marker = markers[station.id];
             var info = infos[station.id];
+            var old = stations[station.id];
+            
+            station.history = old ? old.history : [];
                         
             if (!marker) {
               marker = markers[station.id] = new google.maps.Marker({
@@ -121,12 +123,10 @@ $(function(){
               content += '<p>Bikes: <span class="station-bikes">' + station.bikes + '</span> / <span class="station-slots">' + (station.bikes + station.free) + '</span></p>';
               content += '<ul class="station-updates">';
               
-              if (station.history) {
-                jQuery.each(station.history, function(i, event) {
-                  content += '<li>' + event + '</li>';
-                });
-              }
-              
+              jQuery.each(station.history, function(i, event) {
+                content += '<li>' + event + '</li>';
+              });
+               
               content += '</ul>';
               
               return content;
@@ -143,31 +143,31 @@ $(function(){
             }
             
             if (stations[station.id]) {
-              var old = stations[station.id]
-                , changed = false;
+              var changed = false;
               
               if (old.locked != station.locked) {
                 marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
-                changed = station.name + " is now " + (station.locked ? "" : "un") + "locked.";
+                changed = "Station is now " + (station.locked ? "" : "un") + "locked.";
               }
               if (old.bikes != station.bikes || old.free != station.free) {
                 marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
-                changed = station.name + " now has " + station.bikes + " of " + (station.bikes + station.free) + " bikes free.";
+                if (old.bikes > station.bikes)
+                  changed = (old.bikes - station.bikes) + " were checked out.";
+                else
+                  changed = (station.bikes - old.bikes) + " were checked in.";
               }
               if (old.loc.lat != station.loc.lat || old.loc.lng != station.loc.lng) {
                 marker.setPosition(new google.maps.LatLng(station.loc.lat, station.loc.lng));
-                changed = station.name + " has changed coordinates.";
+                changed = "Changed coordinates.";
               }
               
               if (changed) {
-                if (!station.history) station.history = [];
-                
                 // Limit history to 5 elements and shift updates unto beginning
                 station.history.unshift(changed);
-                station.history.splice(0, 5);
+                station.history = station.history.slice(0, 5);
                 
                 info.setContent(buildContent(station));
-                console.log(changed);
+                console.log(station.name, changed);
                 marker.setAnimation(google.maps.Animation.BOUNCE);
               } else {
                 // Stop animating if no changes since last poll
