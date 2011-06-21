@@ -14,9 +14,11 @@ Station = mongoose.model('Station')
 Fetcher = require './fetcher'
 fetcher = new Fetcher
 
-###
 fetcher.on 'station', (station) ->
   addHistory = (record) ->
+    record.bikes = station.nbBikes
+    record.free = station.nbEmptyDocks
+
     record.history.push
       time: +new Date()
       bikes: station.nbBikes
@@ -32,16 +34,17 @@ fetcher.on 'station', (station) ->
       record = new Station
         id: station.id
         name: station.name
+        bikes: station.nbBikes
+        free: station.nbEmptyDocks
         loc:
           lat: station.lat
           lng: station.long
       
-      record.save (err) ->
-        addHistory(record) unless err
+      #record.save (err) ->
+      addHistory(record)
 
-setInterval fetcher.fetch, 1000 * 60 * 60
+#setInterval fetcher.fetch, 1000 * 60 * 60
 fetcher.fetch()
-###
 
 app.configure ->
   app.set 'views', __dirname + '/views'
@@ -52,5 +55,5 @@ app.get '/', (req, res) ->
   res.render "index"
 
 app.get '/stations.json', (req, res) ->
-  Station.find {}, (err, docs) ->
+  Station.find {}, ['id', 'loc', 'name', 'bikes', 'free'], (err, docs) ->
     res.send JSON.stringify(doc.toObject() for doc in docs)

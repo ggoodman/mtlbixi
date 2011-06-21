@@ -8,6 +8,8 @@ module.exports.initModels = (mongoose) ->
   StationSchema = new mongoose.Schema
     id: String
     name: String
+    bikes: Number
+    free: Number
     loc:
       lat: Number
       lng: Number

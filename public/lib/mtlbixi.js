@@ -40,13 +40,21 @@ $(function(){
           text: station.name
         });
         */
+        var info = new google.maps.InfoWindow({
+          content: "<h1>" + station.name + "</h1><p>Bikes:" + station.bikes + "/" + (station.bikes + station.free) + "</p>"
+        });
         var marker = new google.maps.Marker({
+          animation: google.maps.Animation.DROP,
           icon: image,
           shadow: shadow,
           shape: shape,
           position: new google.maps.LatLng(station.loc.lat, station.loc.lng), 
           map: map, 
           title: station.name
+        });
+        
+        google.maps.event.addListener(marker, 'click', function() {
+          info.open(map, marker);
         });
       });
     }
