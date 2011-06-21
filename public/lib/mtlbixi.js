@@ -8,7 +8,7 @@ $(function(){
   var map = new google.maps.Map(document.getElementById("map_canvas"), options);
   var markers = {};
   var stations = {};
-  var windows = {};
+  var infos = {};
   var location = null;
 
   //var bikeLayer = new google.maps.BicyclingLayer();
@@ -102,7 +102,8 @@ $(function(){
           };            
           jQuery.each(data, function(i, station) {
             var marker = markers[station.id];
-            
+            var info = infos[station.id];
+                        
             if (!marker) {
               marker = markers[station.id] = new google.maps.Marker({
                 icon: station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull),
@@ -112,26 +113,64 @@ $(function(){
                 map: null, 
                 title: station.name
               });
+            }
+            
+            var buildContent = function(station) {
+              var content = '<span class="station-name">' + station.name + '</span>';
+              
+              content += '<p>Bikes: <span class="station-bikes">' + station.bikes + '</span> / <span class="station-slots">' + (station.bikes + station.free) + '</span></p>';
+              content += '<ul class="station-updates">';
+              
+              if (station.history) {
+                jQuery.each(station.history, function(i, event) {
+                  content += '<li>' + event + '</li>';
+                });
+              }
+              
+              content += '</ul>';
+              
+              return content;
+            };
+            
+            if (!info) {
+              var info = infos[station.id] = new google.maps.InfoWindow({
+                content: buildContent(station)
+              });
               
               google.maps.event.addListener(marker, 'click', function() {
-                var info = windows[station.id] = new google.maps.InfoWindow({
-                  content: "<strong>" + station.name + "</strong><p>Bikes: " + station.bikes + " / " + (station.bikes + station.free) + "</p>"
-                });
-                
                 info.open(map, marker);
               });
             }
             
-            if (stations[station.id] && stations[station.id] != station) {
-              marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
-              marker.setPosition(new google.maps.LatLng(station.loc.lat, station.loc.lng));
-              marker.setAnimation(google.maps.Animation.BOUNCE);
+            if (stations[station.id]) {
+              var old = stations[station.id]
+                , changed = false;
               
-              // Update the info window contents
-              windows[station.id].setContent("<strong>" + station.name + "</strong><p>Bikes: " + station.bikes + " / " + (station.bikes + station.free) + "</p>");
-            } else {
-              // Stop any outstanding animations
-              markers[station.id].setAnimation(null);
+              if (old.locked != station.locked) {
+                marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
+                changed = station.name + " is now " + (station.locked ? "" : "un") + "locked.";
+              }
+              if (old.bikes != station.bikes || old.free != station.free) {
+                marker.setIcon(station.locked ? markerLocked : (station.bikes ? (station.free ? markerMixed : markerEmpty) : markerFull));
+                changed = station.name + " now has " + station.bikes + " of " + (station.bikes + station.free) + " bikes free.";
+              }
+              if (old.loc.lat != station.loc.lat || old.loc.lng != station.loc.lng) {
+                marker.setPosition(new google.maps.LatLng(station.loc.lat, station.loc.lng));
+                changed = station.name + " has changed coordinates.";
+              }
+              
+              if (changed) {
+                if (!station.history) station.history = [];
+                
+                station.history.push(changed);
+                
+                info.setContent(buildContent(station));
+                console.log(changed);
+                marker.setAnimation(google.maps.Animation.BOUNCE);
+              } else {
+                // Stop animating if no changes since last poll
+                marker.setAnimation(null);
+              }
             }
 
             // Update stations with new info
