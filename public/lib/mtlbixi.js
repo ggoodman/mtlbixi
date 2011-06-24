@@ -12,7 +12,44 @@
     function Station() {
       Station.__super__.constructor.apply(this, arguments);
     }
+    Station.prototype.initialize = function() {
+      return this.history = new StationHistory;
+    };
     return Station;
+  })();
+  window.StationEvent = (function() {
+    __extends(StationEvent, Backbone.Model);
+    function StationEvent() {
+      StationEvent.__super__.constructor.apply(this, arguments);
+    }
+    return StationEvent;
+  })();
+  window.StationHistory = (function() {
+    __extends(StationHistory, Backbone.Collection);
+    function StationHistory() {
+      StationHistory.__super__.constructor.apply(this, arguments);
+    }
+    StationHistory.prototype.model = StationEvent;
+    StationHistory.prototype.pushBikeEvent = function(bikes, prevBikes) {
+      var abs, delta, evt, inout, plural, werewas, _ref, _ref2;
+      delta = bikes - prevBikes;
+      abs = Math.abs(delta);
+      inout = (_ref = delta > 0) != null ? _ref : {
+        "in": "out"
+      };
+      plural = (_ref2 = abs > 1) != null ? _ref2 : {
+        "s": ""
+      };
+      werewas = plural != null ? plural : {
+        "were": "was"
+      };
+      evt = this.add({
+        message: "" + abs + " bike {#plural} checked " + inout,
+        time: new Date
+      });
+      return console.log("Bike event added", evt);
+    };
+    return StationHistory;
   })();
   window.BikeNetwork = (function() {
     __extends(BikeNetwork, Backbone.Collection);
@@ -44,6 +81,11 @@
     };
     Marker.prototype.initialize = function() {
       this.model.view = this;
+      this.history = new StationHistory;
+      this.model.bind('change:bikes', __bind(function() {
+        this.updateMarker();
+        return this.history.pushBikeEvent(this.model.get('bikes'), this.model.previous('bikes'));
+      }, this));
       this.model.bind('change', __bind(function() {
         this.render();
         return this.bounceMarker();
