@@ -26,6 +26,7 @@
   window.Marker = (function() {
     __extends(Marker, Backbone.View);
     function Marker() {
+      this.bounceMarker = __bind(this.bounceMarker, this);
       this.render = __bind(this.render, this);
       Marker.__super__.constructor.apply(this, arguments);
     }
@@ -43,7 +44,10 @@
     };
     Marker.prototype.initialize = function() {
       this.model.view = this;
-      this.model.bind('change', this.render);
+      this.model.bind('change', __bind(function() {
+        this.render();
+        return this.bounceMarker();
+      }, this));
       return this.el = new google.maps.Marker({
         shadow: Marker.markerShadow,
         shape: Marker.markerShape
@@ -53,6 +57,15 @@
       this.updateMarker();
       this.updatePosition();
       this.updateName();
+      return this;
+    };
+    Marker.prototype.bounceMarker = function() {
+      var self;
+      self = this;
+      this.el.setAnimation(google.maps.Animation.BOUNCE);
+      setTimeout((function() {
+        return self.el.setAnimation(null);
+      }), 1000 * 30);
       return this;
     };
     Marker.prototype.updateMarker = function() {
@@ -101,10 +114,12 @@
         });
         return self.render();
       });
-      return jQuery.when(this.fetchLocation()).then(function(loc) {
+      return jQuery.when(this.fetchLocation(), this.fetchStations()).then(function(loc, stations) {
+        console.log("Deferred resolved", arguments);
         google.maps.event.addListener(self.el, 'idle', self.render);
         self.el.setCenter(loc);
-        return self.render();
+        self.render();
+        return self.collection.refresh(stations);
       });
     };
     Application.prototype.render = function() {
@@ -142,30 +157,29 @@
     Application.prototype.fetchStations = function() {
       var self;
       self = this;
+      this.socket = io.connect();
+      this.socket.on('delta', function(deltas) {
+        var delta, id, _results;
+        console.log.apply(console, ["Received deltas"].concat(__slice.call(arguments)));
+        _results = [];
+        for (id in deltas) {
+          delta = deltas[id];
+          _results.push(self.collection.get(id).set(delta));
+        }
+        return _results;
+      });
       return jQuery.Deferred(function(dfr) {
-        return self.collection.fetch({
-          success: dfr.resolve,
-          error: dfr.reject
+        return self.socket.emit('fetch', function(stations) {
+          return dfr.resolve(_.values(stations));
         });
       }).promise();
     };
     return Application;
   })();
   $(function() {
-    var app, socket;
-    app = new Application({
+    var app;
+    return app = new Application({
       collection: new BikeNetwork
-    });
-    socket = io.connect('http://mtlbixi.ggoodman.c9.io');
-    socket.on('update', function(stations) {
-      console.log.apply(console, ["Received update"].concat(__slice.call(arguments)));
-      return app.collection.refresh(_(stations).values());
-    });
-    return socket.on('delta', function(id, delta) {
-      var _ref;
-      console.log.apply(console, ["Received delta"].concat(__slice.call(arguments)));
-      console.log("Model", app.collection.get(id));
-      return (_ref = app.collection.get(id)) != null ? _ref.set(delta) : void 0;
     });
   });
 }).call(this);

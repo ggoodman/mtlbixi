@@ -4,7 +4,7 @@ xml2js = require 'xml2js'
 
 class StationFetcher extends events.EventEmitter
   constructor: (interval) ->    
-    @interval |= 1000 * 60
+    @interval ||= 1000 * 60
     
     @fetcher = setInterval(@fetch, @interval)
     @fetch()

@@ -2,6 +2,7 @@ express = require 'express'
 app = module.exports = express.createServer()
 
 fs = require 'fs'
+_ = require('underscore')._
 
 app.configure ->
   app.set 'views', __dirname + '/views'
@@ -20,15 +21,24 @@ oldStations = {}
   
 io = require('socket.io').listen(app)
 io.sockets.on 'connection', (socket) ->
-  socket.emit('update', oldStations)
+  socket.on 'fetch', (cb) ->
+    console.log "Received fetch", arguments...
+    cb(_.values(oldStations))
+  #socket.emit('update', oldStations)
+
+io.sockets.on 'fetch', (cb) ->
+  console.log "Received fetch", arguments...
+  cb(_.values(oldStations))
 
 fetcher = require('./fetcher').poll(30)
-fetcher.on 'update', (stations) ->  
+fetcher.on 'update', (stations) ->
+  deltas = {}
   for station in stations
+    delta = {}
     if oldStation = oldStations[station.id]
-      delta = {}
       delta[key] = value for key, value of station when oldStation[key] != value
-      
-      io.sockets.emit('delta', key, delta) if delta
-  
+    
     oldStations[station.id] = station
+    deltas[station.id] = delta unless _.isEmpty(delta)
+  
+  io.sockets.emit('delta', deltas) unless _.isEmpty(deltas)
