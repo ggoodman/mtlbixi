@@ -8,31 +8,27 @@
     return child;
   }, __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }, __slice = Array.prototype.slice;
   window.Station = (function() {
+    __extends(Station, Backbone.Model);
     function Station() {
       Station.__super__.constructor.apply(this, arguments);
     }
-    __extends(Station, Backbone.Model);
     return Station;
   })();
-  window.Stations = (function() {
-    function Stations() {
-      Stations.__super__.constructor.apply(this, arguments);
+  window.BikeNetwork = (function() {
+    __extends(BikeNetwork, Backbone.Collection);
+    function BikeNetwork() {
+      BikeNetwork.__super__.constructor.apply(this, arguments);
     }
-    __extends(Stations, Backbone.Collection);
-    Stations.prototype.url = '/stations.json';
-    Stations.prototype.model = Station;
-    Stations.prototype.initialize = function() {};
-    return Stations;
+    BikeNetwork.prototype.model = Station;
+    BikeNetwork.prototype.url = '/stations.json';
+    return BikeNetwork;
   })();
-  window.Stations = new Stations;
   window.Marker = (function() {
-    function Marker() {
-      this.updatePosition = __bind(this.updatePosition, this);;
-      this.updateName = __bind(this.updateName, this);;
-      this.updateMarker = __bind(this.updateMarker, this);;
-      this.render = __bind(this.render, this);;      Marker.__super__.constructor.apply(this, arguments);
-    }
     __extends(Marker, Backbone.View);
+    function Marker() {
+      this.render = __bind(this.render, this);
+      Marker.__super__.constructor.apply(this, arguments);
+    }
     Marker.markerSize = new google.maps.Size(30, 23);
     Marker.markerTopLeft = new google.maps.Point(0, 0);
     Marker.markerBottomRight = new google.maps.Point(15, 23);
@@ -48,12 +44,10 @@
     Marker.prototype.initialize = function() {
       this.model.view = this;
       this.model.bind('change', this.render);
-      this.el = new google.maps.Marker({
+      return this.el = new google.maps.Marker({
         shadow: Marker.markerShadow,
-        shape: Marker.markerShape,
-        map: null
+        shape: Marker.markerShape
       });
-      return this.render;
     };
     Marker.prototype.render = function() {
       this.updateMarker();
@@ -64,12 +58,12 @@
     Marker.prototype.updateMarker = function() {
       if (this.model.get('locked')) {
         this.el.setIcon(Marker.markerLocked);
-      } else if (this.model.get('free') && this.model.get('bikes')) {
+      } else if (this.model.get('bikes') && this.model.get('free')) {
         this.el.setIcon(Marker.markerMixed);
-      } else if (this.model.get('free')) {
-        this.el.setIcon(Marker.markerEmpty);
-      } else {
+      } else if (this.model.get('bikes')) {
         this.el.setIcon(Marker.markerFull);
+      } else {
+        this.el.setIcon(Marker.markerEmpty);
       }
       return this;
     };
@@ -83,41 +77,43 @@
     };
     return Marker;
   })();
-  window.StationMap = (function() {
-    function StationMap() {
-      this.render = __bind(this.render, this);;      StationMap.__super__.constructor.apply(this, arguments);
+  window.Application = (function() {
+    __extends(Application, Backbone.View);
+    function Application() {
+      this.render = __bind(this.render, this);
+      Application.__super__.constructor.apply(this, arguments);
     }
-    __extends(StationMap, Backbone.View);
-    StationMap.prototype.initialize = function() {
+    Application.prototype.initialize = function() {
       var self;
       self = this;
       this.el = new google.maps.Map(document.getElementById("map_canvas"), {
         zoom: 15,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
+        center: null,
         streetViewControl: false
       });
-      this.location = null;
-      Stations.bind('refresh', function(stations) {
-        return stations.each(function(station) {
+      this.collection.bind('refresh', function(coll) {
+        coll.each(function(station) {
           var view;
           return view = new Marker({
             model: station
           });
         });
+        return self.render();
       });
-      return jQuery.when(this.fetchLocation(), this.fetchStations()).then(function(loc) {
+      return jQuery.when(this.fetchLocation()).then(function(loc) {
         google.maps.event.addListener(self.el, 'idle', self.render);
         self.el.setCenter(loc);
         return self.render();
       });
     };
-    StationMap.prototype.render = function() {
+    Application.prototype.render = function() {
       var self;
       self = this;
-      return Stations.each(function(station) {
-        var marker, _ref;
+      return self.collection.each(function(station) {
+        var marker;
         marker = station.view.render().el;
-        if ((_ref = self.el.getBounds()) != null ? _ref.contains(marker.getPosition()) : void 0) {
+        if (self.el.getBounds().contains(marker.getPosition())) {
           if (!marker.getMap()) {
             return marker.setMap(self.el);
           }
@@ -126,17 +122,9 @@
         }
       });
     };
-    StationMap.prototype.fetchStations = function() {
-      return jQuery.Deferred(function(dfr) {
-        return Stations.fetch({
-          success: function() {
-            return dfr.resolve();
-          },
-          error: dfr.reject
-        });
-      }).promise();
-    };
-    StationMap.prototype.fetchLocation = function() {
+    Application.prototype.fetchLocation = function() {
+      var self;
+      self = this;
       return jQuery.Deferred(function(dfr) {
         var montreal;
         montreal = new google.maps.LatLng(45.508903, -73.554153);
@@ -151,17 +139,33 @@
         }
       }).promise();
     };
-    return StationMap;
+    Application.prototype.fetchStations = function() {
+      var self;
+      self = this;
+      return jQuery.Deferred(function(dfr) {
+        return self.collection.fetch({
+          success: dfr.resolve,
+          error: dfr.reject
+        });
+      }).promise();
+    };
+    return Application;
   })();
   $(function() {
-    var socket;
+    var app, socket;
+    app = new Application({
+      collection: new BikeNetwork
+    });
     socket = io.connect('http://mtlbixi.ggoodman.c9.io');
-    socket.on('initial', function(data) {
-      return console.log.apply(console, ['initial:'].concat(__slice.call(arguments)));
+    socket.on('update', function(stations) {
+      console.log.apply(console, ["Received update"].concat(__slice.call(arguments)));
+      return app.collection.refresh(_(stations).values());
     });
-    socket.on('bikes', function() {
-      return console.log.apply(console, ['bikes:'].concat(__slice.call(arguments)));
+    return socket.on('delta', function(id, delta) {
+      var _ref;
+      console.log.apply(console, ["Received delta"].concat(__slice.call(arguments)));
+      console.log("Model", app.collection.get(id));
+      return (_ref = app.collection.get(id)) != null ? _ref.set(delta) : void 0;
     });
-    return window.Map = new StationMap;
   });
 }).call(this);
