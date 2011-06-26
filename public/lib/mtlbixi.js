@@ -155,24 +155,38 @@
         console.log("Deferred resolved", arguments);
         google.maps.event.addListener(self.el, 'idle', self.render);
         self.el.setCenter(loc);
-        self.render();
         return self.collection.refresh(stations);
       });
     };
     Application.prototype.render = function() {
-      var self;
+      var center, closestDistance, closestStation, numStations, self;
       self = this;
-      return self.collection.each(function(station) {
-        var marker;
+      center = self.el.getCenter();
+      numStations = 0;
+      closestDistance = 999999999;
+      closestStation = null;
+      self.collection.each(function(station) {
+        var distance, marker;
         marker = station.view.render().el;
+        distance = google.maps.geometry.spherical.computeDistanceBetween(center, marker.getPosition());
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestStation = marker.getPosition();
+        }
         if (self.el.getBounds().contains(marker.getPosition())) {
           if (!marker.getMap()) {
-            return marker.setMap(self.el);
+            marker.setMap(self.el);
           }
+          return numStations++;
         } else {
           return marker.setMap(null);
         }
       });
+      if (!numStations) {
+        if (confirm("There are no stations near you. Center on the closest station?")) {
+          return self.el.setCenter(closestStation);
+        }
+      }
     };
     Application.prototype.fetchLocation = function() {
       var self;
