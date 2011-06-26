@@ -15,7 +15,7 @@ app.configure ->
   app.use express.static(__dirname + '/public')
 
 app.get '/', (req, res) ->
-  res.expose("var stations=#{JSON.stringify(oldStations)};")
+  res.expose("var stations=#{JSON.stringify(_.values(oldStations))};")
   res.render 'index'
 
   

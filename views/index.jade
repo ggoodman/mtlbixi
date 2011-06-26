@@ -1,10 +1,27 @@
 #map(data-role="page")
+  div(data-role="header")
+    h1="Station Map"
+    a(id="center",data-role="button",data-icon="home",data-iconpos="notext",class="ui-btn-right")="Go to my location"
   #map_canvas(data-role="content")
   div(data-role="footer",data-position="fixed",data-id="footer")
     div(data-role="navbar")
       ul
         li
           a(href="#map",class="ui-btn-active ui-state-persist")="Map"
+        li
+          a(href="#search")="Search"
+        li
+          a(href="#favorites")="Favorites"
+#search(data-role="page")
+  div(data-role="header")
+    h1="Search"
+  div(data-role="footer",data-position="fixed",data-id="footer")
+    div(data-role="navbar")
+      ul
+        li
+          a(href="#map")="Map"
+        li
+          a(href="#search",class="ui-btn-active ui-state-persist")="Search"
         li
           a(href="#favorites")="Favorites"
 #favorites(data-role="page")
@@ -15,5 +32,7 @@
       ul
         li
           a(href="#map")="Map"
+        li
+          a(href="#search")="Search"
         li
           a(href="#favorites",class="ui-btn-active ui-state-persist")="Favorites"

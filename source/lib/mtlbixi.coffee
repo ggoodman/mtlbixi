@@ -2,8 +2,6 @@ class window.Station extends Backbone.Model
   initialize: ->
     @history = new StationHistory
     @pos = new google.maps.LatLng(@get('lat'), @get('lng'))
-    @set
-      distance: google.maps.geometry.spherical.computeDistanceBetween(@pos, @collection.loc)
 
 class window.StationEvent extends Backbone.Model
 
@@ -25,10 +23,15 @@ class window.StationHistory extends Backbone.Collection
 
 class window.BikeNetwork extends Backbone.Collection
   model: Station
-  comparator: (station) ->
-    station.get('distance')
-    
   url: '/stations.json'
+  
+  sortByDistancesTo: (loc) ->
+    @each (station) ->
+      station.set
+        distance: google.maps.geometry.spherical.computeDistanceBetween(station.pos, loc)
+    @comparator = (station) ->
+      station.get('distance')
+    @sort() #Trigger refresh
 
 class window.Marker extends Backbone.View
   @markerSize: new google.maps.Size(30, 23)
@@ -103,17 +106,30 @@ class window.Application extends Backbone.View
       center: null
       streetViewControl: false
     
-    @collection.bind 'refresh', (coll) ->      
+    @collection.bind 'refresh', (coll) ->
+      console.log "Dests", self.collection.chain().first(5).map((station) -> station.pos).value()
+      options =
+        origins: [self.loc]
+        destinations: self.collection.chain()
+          .filter((station) -> station.get('bikes') > 0)
+          .first(5)
+          .map((station) -> station.pos)
+          .value()
+        travelMode: google.maps.TravelMode.WALKING
+      
+      service = new google.maps.DistanceMatrixService()
+      service.getDistanceMatrix options, (resp, status) ->
+        console.log "Distances", arguments...
+      
       coll.each (station) ->
         view = new Marker(model: station)
         
     
-    jQuery.when(@fetchLocation(), @fetchStations()).then (loc, stations) ->
-      self.collection.loc = loc
-      self.collection.refresh(stations)
-
+    jQuery.when(@fetchLocation()).then (loc) ->
       google.maps.event.addListener(self.el, 'idle', self.render)
       
+      self.loc = loc
+      self.collection.sortByDistancesTo(loc) #Triggers refresh through sort()
       self.el.setCenter(loc)     
   
   render: =>
@@ -122,7 +138,6 @@ class window.Application extends Backbone.View
     self.collection.each (station) ->
       marker = station.view.render().el
       
-      console.log station.get('name'), parseInt(station.get('distance') / 1000) + "km"
       ###
       if distance < closestDistance
         closestDistance = distance
@@ -150,6 +165,7 @@ class window.Application extends Backbone.View
       else dfr.resolve(montreal)
     ).promise()
   
+  ###
   fetchStations: ->
     self = this
     
@@ -162,7 +178,7 @@ class window.Application extends Backbone.View
       self.socket.emit 'fetch', (stations) ->
         dfr.resolve(_.values(stations))
     ).promise()
-
+  ###
 
 $ ->
   network = new BikeNetwork(stations)

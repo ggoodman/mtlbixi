@@ -14,10 +14,7 @@
     }
     Station.prototype.initialize = function() {
       this.history = new StationHistory;
-      this.pos = new google.maps.LatLng(this.get('lat'), this.get('lng'));
-      return this.set({
-        distance: google.maps.geometry.spherical.computeDistanceBetween(this.pos, this.collection.loc)
-      });
+      return this.pos = new google.maps.LatLng(this.get('lat'), this.get('lng'));
     };
     return Station;
   })();
@@ -55,10 +52,18 @@
       BikeNetwork.__super__.constructor.apply(this, arguments);
     }
     BikeNetwork.prototype.model = Station;
-    BikeNetwork.prototype.comparator = function(station) {
-      return station.get('distance');
-    };
     BikeNetwork.prototype.url = '/stations.json';
+    BikeNetwork.prototype.sortByDistancesTo = function(loc) {
+      this.each(function(station) {
+        return station.set({
+          distance: google.maps.geometry.spherical.computeDistanceBetween(station.pos, loc)
+        });
+      });
+      this.comparator = function(station) {
+        return station.get('distance');
+      };
+      return this.sort();
+    };
     return BikeNetwork;
   })();
   window.Marker = (function() {
@@ -150,6 +155,23 @@
         streetViewControl: false
       });
       this.collection.bind('refresh', function(coll) {
+        var options, service;
+        console.log("Dests", self.collection.chain().first(5).map(function(station) {
+          return station.pos;
+        }).value());
+        options = {
+          origins: [self.loc],
+          destinations: self.collection.chain().filter(function(station) {
+            return station.get('bikes') > 0;
+          }).first(5).map(function(station) {
+            return station.pos;
+          }).value(),
+          travelMode: google.maps.TravelMode.WALKING
+        };
+        service = new google.maps.DistanceMatrixService();
+        service.getDistanceMatrix(options, function(resp, status) {
+          return console.log.apply(console, ["Distances"].concat(__slice.call(arguments)));
+        });
         return coll.each(function(station) {
           var view;
           return view = new Marker({
@@ -157,10 +179,10 @@
           });
         });
       });
-      return jQuery.when(this.fetchLocation(), this.fetchStations()).then(function(loc, stations) {
-        self.collection.loc = loc;
-        self.collection.refresh(stations);
+      return jQuery.when(this.fetchLocation()).then(function(loc) {
         google.maps.event.addListener(self.el, 'idle', self.render);
+        self.loc = loc;
+        self.collection.sortByDistancesTo(loc);
         return self.el.setCenter(loc);
       });
     };
@@ -170,7 +192,6 @@
       return self.collection.each(function(station) {
         var marker;
         marker = station.view.render().el;
-        console.log(station.get('name'), parseInt(station.get('distance') / 1000) + "km");
         /*
               if distance < closestDistance
                 closestDistance = distance
@@ -202,32 +223,27 @@
         }
       }).promise();
     };
-    Application.prototype.fetchStations = function() {
-      var self;
-      self = this;
-      this.socket = io.connect();
-      this.socket.on('delta', function(deltas) {
-        var delta, id, _results;
-        console.log.apply(console, ["Received deltas"].concat(__slice.call(arguments)));
-        _results = [];
-        for (id in deltas) {
-          delta = deltas[id];
-          _results.push(self.collection.get(id).set(delta));
-        }
-        return _results;
-      });
-      return jQuery.Deferred(function(dfr) {
-        return self.socket.emit('fetch', function(stations) {
-          return dfr.resolve(_.values(stations));
-        });
-      }).promise();
-    };
+    /*
+      fetchStations: ->
+        self = this
+        
+        @socket = io.connect()
+        @socket.on 'delta', (deltas) ->
+          console.log "Received deltas", arguments...
+          self.collection.get(id).set(delta) for id, delta of deltas
+    
+        jQuery.Deferred((dfr) ->
+          self.socket.emit 'fetch', (stations) ->
+            dfr.resolve(_.values(stations))
+        ).promise()
+      */
     return Application;
   })();
   $(function() {
-    var app;
+    var app, network;
+    network = new BikeNetwork(stations);
     return app = new Application({
-      collection: new BikeNetwork
+      collection: network
     });
   });
 }).call(this);
