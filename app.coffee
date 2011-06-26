@@ -1,4 +1,5 @@
 express = require 'express'
+expose = require 'express-expose'
 app = module.exports = express.createServer()
 
 fs = require 'fs'
@@ -14,21 +15,14 @@ app.configure ->
   app.use express.static(__dirname + '/public')
 
 app.get '/', (req, res) ->
+  res.expose("var stations=#{JSON.stringify(oldStations)};")
   res.render 'index'
+
   
 updateQueue = []
 oldStations = {}
-  
-io = require('socket.io').listen(app)
-io.sockets.on 'connection', (socket) ->
-  socket.on 'fetch', (cb) ->
-    console.log "Received fetch", arguments...
-    cb(_.values(oldStations))
-  #socket.emit('update', oldStations)
 
-io.sockets.on 'fetch', (cb) ->
-  console.log "Received fetch", arguments...
-  cb(_.values(oldStations))
+io = require('socket.io').listen(app)
 
 fetcher = require('./fetcher').poll(30)
 fetcher.on 'update', (stations) ->

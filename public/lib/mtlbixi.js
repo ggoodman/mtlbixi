@@ -13,7 +13,11 @@
       Station.__super__.constructor.apply(this, arguments);
     }
     Station.prototype.initialize = function() {
-      return this.history = new StationHistory;
+      this.history = new StationHistory;
+      this.pos = new google.maps.LatLng(this.get('lat'), this.get('lng'));
+      return this.set({
+        distance: google.maps.geometry.spherical.computeDistanceBetween(this.pos, this.collection.loc)
+      });
     };
     return Station;
   })();
@@ -51,6 +55,9 @@
       BikeNetwork.__super__.constructor.apply(this, arguments);
     }
     BikeNetwork.prototype.model = Station;
+    BikeNetwork.prototype.comparator = function(station) {
+      return station.get('distance');
+    };
     BikeNetwork.prototype.url = '/stations.json';
     return BikeNetwork;
   })();
@@ -143,50 +150,40 @@
         streetViewControl: false
       });
       this.collection.bind('refresh', function(coll) {
-        coll.each(function(station) {
+        return coll.each(function(station) {
           var view;
           return view = new Marker({
             model: station
           });
         });
-        return self.render();
       });
       return jQuery.when(this.fetchLocation(), this.fetchStations()).then(function(loc, stations) {
-        console.log("Deferred resolved", arguments);
+        self.collection.loc = loc;
+        self.collection.refresh(stations);
         google.maps.event.addListener(self.el, 'idle', self.render);
-        self.el.setCenter(loc);
-        return self.collection.refresh(stations);
+        return self.el.setCenter(loc);
       });
     };
     Application.prototype.render = function() {
-      var center, closestDistance, closestStation, numStations, self;
+      var self;
       self = this;
-      center = self.el.getCenter();
-      numStations = 0;
-      closestDistance = 999999999;
-      closestStation = null;
-      self.collection.each(function(station) {
-        var distance, marker;
+      return self.collection.each(function(station) {
+        var marker;
         marker = station.view.render().el;
-        distance = google.maps.geometry.spherical.computeDistanceBetween(center, marker.getPosition());
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestStation = marker.getPosition();
-        }
+        console.log(station.get('name'), parseInt(station.get('distance') / 1000) + "km");
+        /*
+              if distance < closestDistance
+                closestDistance = distance
+                closestStation = marker.getPosition()
+              */
         if (self.el.getBounds().contains(marker.getPosition())) {
           if (!marker.getMap()) {
-            marker.setMap(self.el);
+            return marker.setMap(self.el);
           }
-          return numStations++;
         } else {
           return marker.setMap(null);
         }
       });
-      if (!numStations) {
-        if (confirm("There are no stations near you. Center on the closest station?")) {
-          return self.el.setCenter(closestStation);
-        }
-      }
     };
     Application.prototype.fetchLocation = function() {
       var self;

@@ -1,6 +1,9 @@
 class window.Station extends Backbone.Model
   initialize: ->
     @history = new StationHistory
+    @pos = new google.maps.LatLng(@get('lat'), @get('lng'))
+    @set
+      distance: google.maps.geometry.spherical.computeDistanceBetween(@pos, @collection.loc)
 
 class window.StationEvent extends Backbone.Model
 
@@ -22,6 +25,9 @@ class window.StationHistory extends Backbone.Collection
 
 class window.BikeNetwork extends Backbone.Collection
   model: Station
+  comparator: (station) ->
+    station.get('distance')
+    
   url: '/stations.json'
 
 class window.Marker extends Backbone.View
@@ -52,6 +58,7 @@ class window.Marker extends Backbone.View
     @model.bind 'change', =>
       @render()
       @bounceMarker()
+      
     @el = new google.maps.Marker
       shadow: Marker.markerShadow
       shape: Marker.markerShape
@@ -69,7 +76,6 @@ class window.Marker extends Backbone.View
     setTimeout((-> self.el.setAnimation(null)), 1000 * 30) # Bounce for 30s
     
     return this
-    
   
   updateMarker: ->
     if @model.get('locked') then @el.setIcon(Marker.markerLocked)
@@ -97,42 +103,39 @@ class window.Application extends Backbone.View
       center: null
       streetViewControl: false
     
-    @collection.bind 'refresh', (coll) ->
+    @collection.bind 'refresh', (coll) ->      
       coll.each (station) ->
         view = new Marker(model: station)
-      self.render()
+        
     
     jQuery.when(@fetchLocation(), @fetchStations()).then (loc, stations) ->
-      console.log "Deferred resolved", arguments
+      self.collection.loc = loc
+      self.collection.refresh(stations)
+
       google.maps.event.addListener(self.el, 'idle', self.render)
       
       self.el.setCenter(loc)     
-      self.collection.refresh(stations)
   
   render: =>
     self = this
     
-    center = self.el.getCenter()
-    numStations = 0
-    closestDistance = 999999999
-    closestStation = null
-    
     self.collection.each (station) ->
       marker = station.view.render().el
       
-      distance = google.maps.geometry.spherical.computeDistanceBetween(center, marker.getPosition())
+      console.log station.get('name'), parseInt(station.get('distance') / 1000) + "km"
+      ###
       if distance < closestDistance
         closestDistance = distance
         closestStation = marker.getPosition()
-      
+      ###
       if self.el.getBounds().contains(marker.getPosition())
         marker.setMap(self.el) unless marker.getMap()
-        numStations++
+        #numStations++
       else
         marker.setMap(null)
     
-    unless numStations
-      self.el.setCenter(closestStation) if confirm("There are no stations near you. Center on the closest station?")
+    #unless numStations
+    #  self.el.setCenter(closestStation) if confirm("There are no stations near you. Center on the closest station?")
   
   fetchLocation: ->
     self = this
@@ -162,7 +165,8 @@ class window.Application extends Backbone.View
 
 
 $ ->
-  app = new Application(collection: new BikeNetwork)
+  network = new BikeNetwork(stations)
+  app = new Application(collection: network)
   
   #$('#map_canvas').height($('#map_footer').css('top'))
     

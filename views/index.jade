@@ -1,7 +1,19 @@
 #map(data-role="page")
   #map_canvas(data-role="content")
-  #map_footer(data-role="footer",data-position="fixed")
-    #map_nav(data-role="navbar")
+  div(data-role="footer",data-position="fixed",data-id="footer")
+    div(data-role="navbar")
+      ul
+        li
+          a(href="#map",class="ui-btn-active ui-state-persist")="Map"
+        li
+          a(href="#favorites")="Favorites"
+#favorites(data-role="page")
+  div(data-role="header")
+    h1="Favorites"
+  div(data-role="footer",data-position="fixed",data-id="footer")
+    div(data-role="navbar")
       ul
         li
           a(href="#map")="Map"
+        li
+          a(href="#favorites",class="ui-btn-active ui-state-persist")="Favorites"
