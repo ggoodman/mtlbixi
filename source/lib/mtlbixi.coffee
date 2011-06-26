@@ -103,11 +103,10 @@ class window.Application extends Backbone.View
     @el = new google.maps.Map document.getElementById("map_canvas"),
       zoom: 15
       mapTypeId: google.maps.MapTypeId.ROADMAP
-      center: null
+      center: new google.maps.LatLng(45.508903, -73.554153)
       streetViewControl: false
     
     @collection.bind 'refresh', (coll) ->
-      console.log "Dests", self.collection.chain().first(5).map((station) -> station.pos).value()
       options =
         origins: [self.loc]
         destinations: self.collection.chain()
@@ -123,34 +122,36 @@ class window.Application extends Backbone.View
       
       coll.each (station) ->
         view = new Marker(model: station)
-        
+    
+    @socket = io.connect()
+    @socket.on 'delta', (deltas) ->
+      console.log "Received deltas", arguments...
+      self.collection.get(id).set(delta) for id, delta of deltas
     
     jQuery.when(@fetchLocation()).then (loc) ->
       google.maps.event.addListener(self.el, 'idle', self.render)
       
       self.loc = loc
-      self.collection.sortByDistancesTo(loc) #Triggers refresh through sort()
-      self.el.setCenter(loc)     
+      self.collection.sortByDistancesTo(loc) # Triggers refresh through sort()
+      self.el.setCenter(loc)
+      
+      console.log "Bounds", self.el.getCenter(), self.el.getBounds()      
   
   render: =>
     self = this
     
+    unless self.el.getBounds().contains(self.collection.at(0).pos) or self.rendered
+      self.el.panTo(self.collection.at(0).pos) if confirm("There are no stations in your viccinity. Center on the closest station?")
+    
+    self.rendered = true
+    
     self.collection.each (station) ->
       marker = station.view.render().el
-      
-      ###
-      if distance < closestDistance
-        closestDistance = distance
-        closestStation = marker.getPosition()
-      ###
+
       if self.el.getBounds().contains(marker.getPosition())
         marker.setMap(self.el) unless marker.getMap()
-        #numStations++
       else
         marker.setMap(null)
-    
-    #unless numStations
-    #  self.el.setCenter(closestStation) if confirm("There are no stations near you. Center on the closest station?")
   
   fetchLocation: ->
     self = this
@@ -164,25 +165,10 @@ class window.Application extends Backbone.View
         )
       else dfr.resolve(montreal)
     ).promise()
-  
-  ###
-  fetchStations: ->
-    self = this
-    
-    @socket = io.connect()
-    @socket.on 'delta', (deltas) ->
-      console.log "Received deltas", arguments...
-      self.collection.get(id).set(delta) for id, delta of deltas
-
-    jQuery.Deferred((dfr) ->
-      self.socket.emit 'fetch', (stations) ->
-        dfr.resolve(_.values(stations))
-    ).promise()
-  ###
 
 $ ->
   network = new BikeNetwork(stations)
   app = new Application(collection: network)
   
   #$('#map_canvas').height($('#map_footer').css('top'))
-    
+  window.scrollTo(0, 1)

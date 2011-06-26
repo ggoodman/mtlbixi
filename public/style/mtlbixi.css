@@ -3,8 +3,15 @@ body { height: 100%; margin: 0px; padding: 0px }
 #map_canvas {
   position: absolute;
   top: 41px;
-  bottom: 32px;
+  bottom: 63px;
   width: 100%;
   margin: 0;
   padding: 0;
 }
+
+.ui-navbar .ui-btn .ui-btn-inner { padding-top: 40px !important; }
+.ui-navbar .ui-btn .ui-icon { width: 30px!important; height: 30px!important; margin-left: -15px !important; box-shadow: none!important; -moz-box-shadow: none!important; -webkit-box-shadow: none!important; -webkit-border-radius: none !important; border-radius: none !important; }
+
+.ui-navbar a[href='#map'] .ui-icon { background:  url(/img/icons/103-map.png) 50% 50% no-repeat; background-size: 26px 21px; }
+.ui-navbar a[href='#search'] .ui-icon { background:  url(/img/icons/06-magnify.png) 50% 50% no-repeat; background-size: 24px 24px; }
+.ui-navbar a[href='#favorites'] .ui-icon { background:  url(/img/icons/28-star.png) 50% 50% no-repeat; background-size: 26px 26px; }

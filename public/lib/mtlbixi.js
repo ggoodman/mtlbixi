@@ -151,14 +151,11 @@
       this.el = new google.maps.Map(document.getElementById("map_canvas"), {
         zoom: 15,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
-        center: null,
+        center: new google.maps.LatLng(45.508903, -73.554153),
         streetViewControl: false
       });
       this.collection.bind('refresh', function(coll) {
         var options, service;
-        console.log("Dests", self.collection.chain().first(5).map(function(station) {
-          return station.pos;
-        }).value());
         options = {
           origins: [self.loc],
           destinations: self.collection.chain().filter(function(station) {
@@ -179,24 +176,37 @@
           });
         });
       });
+      this.socket = io.connect();
+      this.socket.on('delta', function(deltas) {
+        var delta, id, _results;
+        console.log.apply(console, ["Received deltas"].concat(__slice.call(arguments)));
+        _results = [];
+        for (id in deltas) {
+          delta = deltas[id];
+          _results.push(self.collection.get(id).set(delta));
+        }
+        return _results;
+      });
       return jQuery.when(this.fetchLocation()).then(function(loc) {
         google.maps.event.addListener(self.el, 'idle', self.render);
         self.loc = loc;
         self.collection.sortByDistancesTo(loc);
-        return self.el.setCenter(loc);
+        self.el.setCenter(loc);
+        return console.log("Bounds", self.el.getCenter(), self.el.getBounds());
       });
     };
     Application.prototype.render = function() {
       var self;
       self = this;
+      if (!(self.el.getBounds().contains(self.collection.at(0).pos) || self.rendered)) {
+        if (confirm("There are no stations in your viccinity. Center on the closest station?")) {
+          self.el.panTo(self.collection.at(0).pos);
+        }
+      }
+      self.rendered = true;
       return self.collection.each(function(station) {
         var marker;
         marker = station.view.render().el;
-        /*
-              if distance < closestDistance
-                closestDistance = distance
-                closestStation = marker.getPosition()
-              */
         if (self.el.getBounds().contains(marker.getPosition())) {
           if (!marker.getMap()) {
             return marker.setMap(self.el);
@@ -223,27 +233,14 @@
         }
       }).promise();
     };
-    /*
-      fetchStations: ->
-        self = this
-        
-        @socket = io.connect()
-        @socket.on 'delta', (deltas) ->
-          console.log "Received deltas", arguments...
-          self.collection.get(id).set(delta) for id, delta of deltas
-    
-        jQuery.Deferred((dfr) ->
-          self.socket.emit 'fetch', (stations) ->
-            dfr.resolve(_.values(stations))
-        ).promise()
-      */
     return Application;
   })();
   $(function() {
     var app, network;
     network = new BikeNetwork(stations);
-    return app = new Application({
+    app = new Application({
       collection: network
     });
+    return window.scrollTo(0, 1);
   });
 }).call(this);
