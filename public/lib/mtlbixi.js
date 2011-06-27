@@ -1,5 +1,5 @@
 (function() {
-  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }, __slice = Array.prototype.slice;
   window.Marker = (function() {
     Marker.markerSize = new google.maps.Size(30, 23);
     Marker.markerTopLeft = new google.maps.Point(0, 0);
@@ -66,11 +66,9 @@
   Ext.setup({
     onReady: function() {
       var favoritesPanel, map, mapPanel, mapToolbar, panel, searchPanel, socket, stationStore, trackButton;
-      if (Ext.is.Android) {
-        Ext.Anim.override({
-          disableAnimations: true
-        });
-      }
+      Ext.Anim.override({
+        disableAnimations: true
+      });
       Ext.regModel('Station', {
         fields: [
           {
@@ -110,7 +108,11 @@
       });
       stationStore = new Ext.data.Store({
         model: 'Station',
-        data: stations
+        data: stations,
+        sorters: 'name',
+        getGroupString: function(record) {
+          return record.get('name')[0];
+        }
       });
       trackButton = new Ext.Button({
         iconCls: "locate",
@@ -168,12 +170,11 @@
         var position;
         this.setAutoUpdate(false);
         position = new google.maps.LatLng(loc.latitude, loc.longitude);
-        stationStore.each(function(station) {
+        return stationStore.each(function(station) {
           var distance;
           distance = google.maps.geometry.spherical.computeDistanceBetween(position, station.get('pos'));
           return station.set('distance', distance);
         });
-        return stationStore.sort('distance', 'ASC');
       });
       mapPanel = new Ext.Panel({
         title: "Map",
@@ -182,31 +183,67 @@
         items: [map]
       });
       searchPanel = new Ext.TabPanel({
-        title: "Search",
+        title: "Stations",
         iconCls: "search",
         tabBar: {
           layout: {
             pack: 'center'
           }
         },
+        defaults: {
+          store: stationStore,
+          xtype: 'list',
+          itemSelector: 'div.id',
+          itemTpl: '<div id="{id}">\
+                  <h3>{name}</h3>\
+                  <strong>Bikes:</strong> {bikes}\
+                  <strong>Free docks:</strong> {free}\
+                  <strong>Distance:</strong> {[values.distance > 1000 ? Math.round(values.distance / 100) / 10 + "km" : values.distance + "m"]}\
+                  </div>'
+        },
+        listeners: {
+          beforecardswitch: function(cmp, newCard, oldCard, index, animated) {
+            console.log.apply(console, ["cardswitch"].concat(__slice.call(arguments)));
+            if (newCard.title === "All") {
+              return stationStore.sort('name', 'ASC');
+            } else if (oldCard.title === "All") {
+              return stationStore.sort('distance', 'ASC');
+            }
+          }
+        },
         items: [
           {
             title: "All",
-            xtype: "list",
-            store: stationStore,
-            itemTpl: "<h3>{name}</h3>{[console.log(this)]} {[this.getReadableDistance()]}m</div>"
+            grouped: true,
+            indexBar: true
           }, {
-            getReadableDistance: function(dist) {
-              if (dist > 1000) {
-                return parseInt(dist / 100) / 10 + "km";
-              } else {
-                return dist + "m";
+            title: "Bikes",
+            collectData: function(records, start) {
+              var record, _i, _len, _ref, _results;
+              _ref = records.slice(0, 5);
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                record = _ref[_i];
+                if (record.get('bikes') > 0) {
+                  _results.push(record.data);
+                }
               }
+              return _results;
             }
           }, {
-            title: "Bikes"
-          }, {
-            title: "Docks"
+            title: "Docks",
+            collectData: function(records, start) {
+              var record, _i, _len, _ref, _results;
+              _ref = records.slice(0, 5);
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                record = _ref[_i];
+                if (record.get('free') > 0) {
+                  _results.push(record.data);
+                }
+              }
+              return _results;
+            }
           }
         ]
       });
@@ -216,7 +253,9 @@
       });
       panel = new Ext.TabPanel({
         fullscreen: true,
-        animation: false,
+        defaults: {
+          animation: false
+        },
         tabBar: {
           dock: 'bottom',
           ui: 'light',
