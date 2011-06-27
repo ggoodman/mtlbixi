@@ -147,12 +147,30 @@ Ext.setup
         store: stationStore
         xtype: 'list'
         itemSelector: 'div.id'
+        itemCls: 'mtlbixi-station'
         itemTpl: '<div id="{id}">
                   <h3>{name}</h3>
                   <strong>Bikes:</strong> {bikes}
                   <strong>Free docks:</strong> {free}
                   <strong>Distance:</strong> {[values.distance > 1000 ? Math.round(values.distance / 100) / 10 + "km" : values.distance + "m"]}
                   </div>'
+        listeners:
+          refresh: (list) ->
+            list.getEl().select("div.mtlbixi-station").each (node) ->
+              record = list.getRecord(node)
+              console.log "Record", node, record
+              starButton = new Ext.Button
+                iconCls: "favorites"
+                pressed: true
+              wrapper = new Ext.SegmentedButton
+                allowMultiple: true
+                defaults:
+                  iconMask: true
+                  ui: "plain"
+                items: [starButton]
+                renderTo: node
+                handler: (btn, e) ->
+                  console.log "Clicked", arguments...
       listeners:
         beforecardswitch: (cmp, newCard, oldCard, index, animated) ->
           console.log "cardswitch", arguments...
@@ -175,7 +193,7 @@ Ext.setup
           collectData: (records, start) ->
             record.data for record in records[0..4] when record.get('free') > 0
       ]
-    
+        
     # TODO: Make this a List
     favoritesPanel = new Ext.Panel
       title: "Favorites"
