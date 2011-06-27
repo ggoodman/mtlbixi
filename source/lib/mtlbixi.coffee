@@ -167,8 +167,9 @@ class window.Application extends Backbone.View
     ).promise()
 
 $ ->
-  network = new BikeNetwork(stations)
-  app = new Application(collection: network)
+  window.network = new BikeNetwork(stations)
+  window.app = new Application(collection: network)
+  window.search = new SearchView(collection: network)
   
   #$('#map_canvas').height($('#map_footer').css('top'))
   window.scrollTo(0, 1)

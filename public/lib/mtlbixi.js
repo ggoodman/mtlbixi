@@ -236,9 +236,11 @@
     return Application;
   })();
   $(function() {
-    var app, network;
-    network = new BikeNetwork(stations);
-    app = new Application({
+    window.network = new BikeNetwork(stations);
+    window.app = new Application({
+      collection: network
+    });
+    window.search = new SearchView({
       collection: network
     });
     return window.scrollTo(0, 1);
