@@ -18,6 +18,9 @@ app.get '/', (req, res) ->
   res.expose("var stations=#{JSON.stringify(_.values(oldStations))};")
   res.render 'index'
 
+app.get '/test', (req, res) ->
+  res.render 'test', layout: false
+
   
 updateQueue = []
 oldStations = {}

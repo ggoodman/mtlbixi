@@ -65,7 +65,7 @@
   })();
   Ext.setup({
     onReady: function() {
-      var favoritesPanel, map, mapPanel, mapToolbar, panel, searchPanel, socket, stationStore, trackButton;
+      var closestFilters, closestPanel, favoritesPanel, map, mapPanel, mapToolbar, panel, socket, stationStore, trackButton;
       Ext.Anim.override({
         disableAnimations: true
       });
@@ -109,24 +109,27 @@
       stationStore = new Ext.data.Store({
         model: 'Station',
         data: stations,
-        sorters: 'name',
+        sorters: 'distance',
         getGroupString: function(record) {
           return record.get('name')[0];
         }
       });
-      trackButton = new Ext.Button({
+      trackButton = {
+        xtype: "button",
         iconCls: "locate",
         handler: function() {
-          return map.geo.updateLocation(function(location) {
-            var bounds, loc;
-            loc = new google.maps.LatLng(location.latitude, location.longitude);
-            bounds = new google.maps.LatLngBounds(loc, stationStore.getAt(0).get('pos'));
-            map.update(location);
-            return map.map.fitBounds(bounds);
-          });
+          /* TODO: Base this on google.maps event; make it TRACK location, not simply center/scale
+          map = Ext.getCmp('map')
+          map.geo.updateLocation (location) ->
+            loc = new google.maps.LatLng(location.latitude, location.longitude)
+            bounds = new google.maps.LatLngBounds(loc, stationStore.getAt(0).get('pos'))
+            map.update(location)
+            map.map.fitBounds(bounds)
+          */
         }
-      });
-      mapToolbar = new Ext.Toolbar({
+      };
+      mapToolbar = {
+        xtype: "toolbar",
         dock: "top",
         defaults: {
           iconMask: true,
@@ -137,145 +140,181 @@
             xtype: "spacer"
           }, trackButton
         ]
-      });
-      map = new Ext.Map({
-        dockedItems: {
-          xtype: "toolbar"
-        },
+      };
+      map = {
+        id: "map",
+        xtype: "map",
         useCurrentLocation: true,
         mapOptions: {
           zoom: 15,
           mapTypeId: google.maps.MapTypeId.ROADMAP,
           center: new google.maps.LatLng(45.508903, -73.554153),
           streetViewControl: false
+        },
+        listeners: {
+          added: function(map) {
+            console.log.apply(console, ["Added"].concat(__slice.call(arguments)));
+            map.on('maprender', function() {
+              return google.maps.event.addListener(map.map, 'idle', function() {
+                console.log("Map is idle");
+                return stationStore.each(function(station) {
+                  var marker;
+                  marker = station.get('marker').render().el;
+                  if (map.map.getBounds().contains(marker.getPosition())) {
+                    if (!marker.getMap()) {
+                      return marker.setMap(map.map);
+                    }
+                  } else {
+                    return marker.setMap(null);
+                  }
+                });
+              });
+            });
+            return map.geo.on('locationupdate', function(loc) {
+              var position;
+              position = new google.maps.LatLng(loc.latitude, loc.longitude);
+              return stationStore.each(function(station) {
+                var distance;
+                distance = google.maps.geometry.spherical.computeDistanceBetween(position, station.get('pos'));
+                return station.set('distance', distance);
+              });
+            });
+          }
         }
-      });
-      map.on('maprender', function() {
-        return google.maps.event.addListener(map.map, 'idle', function() {
-          console.log("Map is idle");
-          return stationStore.each(function(station) {
-            var marker;
-            marker = station.get('marker').render().el;
-            if (map.map.getBounds().contains(marker.getPosition())) {
-              if (!marker.getMap()) {
-                return marker.setMap(map.map);
-              }
-            } else {
-              return marker.setMap(null);
-            }
-          });
-        });
-      });
-      map.geo.on('locationupdate', function(loc) {
-        var position;
-        this.setAutoUpdate(false);
-        position = new google.maps.LatLng(loc.latitude, loc.longitude);
-        return stationStore.each(function(station) {
-          var distance;
-          distance = google.maps.geometry.spherical.computeDistanceBetween(position, station.get('pos'));
-          return station.set('distance', distance);
-        });
-      });
-      mapPanel = new Ext.Panel({
+      };
+      mapPanel = {
+        xtype: "panel",
         title: "Map",
         iconCls: "maps",
         dockedItems: [mapToolbar],
         items: [map]
-      });
-      searchPanel = new Ext.TabPanel({
-        title: "Stations",
-        iconCls: "search",
-        tabBar: {
-          layout: {
-            pack: 'center'
-          }
-        },
-        defaults: {
-          store: stationStore,
-          xtype: 'list',
-          itemSelector: 'div.id',
-          itemTpl: '<div class="mtlbixi-station" id="{id}">\
-                  <h3>{name}</h3>\
-                  <strong>Bikes:</strong> {bikes}\
-                  <strong>Free docks:</strong> {free}\
-                  <strong>Distance:</strong> {[values.distance > 1000 ? Math.round(values.distance / 100) / 10 + "km" : values.distance + "m"]}\
-                  </div>',
-          listeners: {
-            refresh: function(list) {
-              return list.getEl().select("div.mtlbixi-station").each(function(node) {
-                var record, starButton, wrapper;
-                record = list.getRecord(node);
-                console.log("Record", node, record);
-                starButton = new Ext.Button({
-                  iconCls: "favorites",
-                  pressed: true
-                });
-                return wrapper = new Ext.SegmentedButton({
-                  allowMultiple: true,
-                  defaults: {
-                    iconMask: true,
-                    ui: "plain"
-                  },
-                  items: [starButton],
-                  renderTo: node,
-                  handler: function(btn, e) {
-                    return console.log.apply(console, ["Clicked"].concat(__slice.call(arguments)));
-                  }
-                });
+      };
+      closestFilters = {
+        xtype: "segmentedbutton",
+        items: [
+          {
+            text: "Bikes",
+            pressed: true,
+            handler: function() {
+              stationStore.clearFilter();
+              return stationStore.filterBy(function(record) {
+                return record.get('bikes') > 0;
+              });
+            }
+          }, {
+            text: "Docks",
+            handler: function() {
+              stationStore.clearFilter();
+              return stationStore.filterBy(function(record) {
+                return record.get('free') > 0;
               });
             }
           }
-        },
-        listeners: {
-          beforecardswitch: function(cmp, newCard, oldCard, index, animated) {
-            console.log.apply(console, ["cardswitch"].concat(__slice.call(arguments)));
-            if (newCard.title === "All") {
-              return stationStore.sort('name', 'ASC');
-            } else if (oldCard.title === "All") {
-              return stationStore.sort('distance', 'ASC');
+        ]
+      };
+      closestPanel = {
+        xtype: "panel",
+        title: "Closest",
+        iconCls: "search",
+        dockedItems: [
+          {
+            xtype: "toolbar",
+            items: [closestFilters],
+            layout: {
+              pack: "center"
             }
           }
-        },
+        ],
         items: [
           {
-            title: "All",
-            grouped: true,
-            indexBar: true
-          }, {
-            title: "Bikes",
-            collectData: function(records, start) {
-              var record, _i, _len, _ref, _results;
-              _ref = records.slice(0, 5);
-              _results = [];
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                record = _ref[_i];
-                if (record.get('bikes') > 0) {
-                  _results.push(record.data);
-                }
+            xtype: "list",
+            store: stationStore,
+            itemSelector: "div.mb-station-closest",
+            itemTpl: '<div class="mb-station-list mb-station-closest">\
+                    <h3>\
+                      {name}\
+                      <span class="mb-star mb-star-selected">&#9733</span>\
+                    </h3>\
+                    <strong>Bikes:</strong> {bikes}\
+                    <strong>Free docks:</strong> {free}\
+                    <strong>Distance:</strong> {[values.distance > 1000 ? Math.round(values.distance / 100) / 10 + "km" : values.distance + "m"]}\
+                  </div>',
+            listeners: {
+              beforerender: function(list) {
+                list.store.clearFilter();
+                return list.store.filterBy(function(record) {
+                  return record.get('bikes') > 0;
+                });
               }
-              return _results;
-            }
-          }, {
-            title: "Docks",
-            collectData: function(records, start) {
-              var record, _i, _len, _ref, _results;
-              _ref = records.slice(0, 5);
-              _results = [];
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                record = _ref[_i];
-                if (record.get('free') > 0) {
-                  _results.push(record.data);
-                }
-              }
-              return _results;
             }
           }
         ]
-      });
-      favoritesPanel = new Ext.Panel({
+      };
+      /* Deprecated
+      closestPanel =
+        xtype: "tabpanel"
+        title: "Closest"
+        iconCls: "locate"
+        tabBar:
+          layout:
+            pack: 'center'
+        defaults:
+          store: stationStore
+          xtype: 'list'
+          itemTpl: '<div class="{id}">
+                      <h3>
+                        {name}
+                        <span class="mb-star mb-star-selected">&#9733</span>
+                      </h3>
+                      <strong>Bikes:</strong> {bikes}
+                      <strong>Free docks:</strong> {free}
+                      <strong>Distance:</strong> {[values.distance > 1000 ? Math.round(values.distance / 100) / 10 + "km" : values.distance + "m"]}
+                    </div>'
+        listeners:
+          beforecardswitch: (cmp, newCard, oldCard, index, animated) ->
+            console.log "cardswitch", arguments...
+            
+            stationStore.clearFilter(true)
+            
+            switch newCard.title
+              when "Bikes"
+                stationStore.filterBy (record) -> record.get('bikes') > 0
+                stationStore.sort('distance')
+              when "Docks"
+                stationStore.filterBy (record) -> record.get('free') > 0
+                stationStore.sort('distance')
+              when "All"
+                stationStore.sort('name')
+      
+                    
+        items: [
+            title: "Bikes"
+            itemSelector: '.mtlbixi-stations-bikes'
+            itemCls: 'mtlbixi-stations-bikes'
+            collectData: (records, start) ->
+              (record.data for record in records when record.get('bikes') > 0)
+          ,
+            title: "Docks"
+            itemSelector: '.mtlbixi-stations-docks'
+            itemCls: 'mtlbixi-stations-docks'
+            collectData: (records, start) ->
+              (record.data for record in records when record.get('free') > 0)
+          ,  
+            title: "Alphabetical"
+            itemSelector: '.mtlbixi-stations-all'
+            itemCls: 'mtlbixi-stations-all'
+            grouped: true
+            indexBar: true
+            listeners:
+              itemtap: ->
+                console.log "Item tap", arguments...
+        ]
+      */
+      favoritesPanel = {
+        xtype: "panel",
         title: "Favorites",
         iconCls: "favorites"
-      });
+      };
       panel = new Ext.TabPanel({
         fullscreen: true,
         defaults: {
@@ -288,7 +327,7 @@
             pack: 'center'
           }
         },
-        items: [mapPanel, searchPanel, favoritesPanel]
+        items: [closestPanel, mapPanel, favoritesPanel]
       });
       console.log("Socket.io", io);
       socket = io.connect();

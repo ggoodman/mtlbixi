@@ -1,0 +1,10 @@
+.mb-star {
+  font-size: 120% !important;
+  line-height: 1.17em !important;
+  -moz-text-shadow: 0 0 5px #888;
+  -webkit-text-shadow: 0 0 5px#888;
+  text-shadow: 0 0 5px #888;
+}
+.mb-star-selected {
+  color: yellow;
+}
