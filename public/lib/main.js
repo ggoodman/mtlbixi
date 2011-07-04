@@ -1,5 +1,6 @@
 (function() {
-  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var App;
+  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }, __slice = Array.prototype.slice;
   window.Marker = (function() {
     Marker.markerSize = new google.maps.Size(30, 23);
     Marker.markerTopLeft = new google.maps.Point(0, 0);
@@ -23,7 +24,7 @@
         position: this.model.get('pos')
       });
       google.maps.event.addListener(this.el, 'click', __bind(function() {
-        return console.log("Model", this.model.getId(), this.model, this.model.store.getById(12));
+        return console.log("Model", this.model.getId(), this.model);
       }, this));
     }
     Marker.prototype.render = function() {
@@ -63,16 +64,19 @@
     };
     return Marker;
   })();
+  App = {
+    data: {}
+  };
   Ext.setup({
     onReady: function() {
-      var closestFilters, currentLocation, geoloc, initialLoad, locationSupported, map, mapPanel, panel, refreshDistances, refreshStations, renderVisibleMarkers, stationList, stationListPanel, stationStore;
-      locationSupported = false;
+      var closestFilters, currentLocation, geoloc, initialLoad, map, mapPanel, panel, refreshDistances, refreshStations, remoteStore, renderVisibleMarkers, stationList, stationListPanel, stationStore;
+      window.locationSupported = false;
       currentLocation = new google.maps.LatLng(45.508903, -73.554153);
       initialLoad = true;
       Ext.Anim.override({
         disableAnimations: true
       });
-      Ext.regModel('Station', {
+      Ext.regModel('LocalStation', {
         fields: [
           {
             name: 'id',
@@ -111,19 +115,42 @@
           }
         ]
       });
-      /*
-          stationStore = new Ext.data.Store
-            model: 'Station'
-            proxy:
-              type: 'localstorage'
-              id: 'mtlbixi.stations'
-            autoLoad: true
-            listeners:
-              update: (self, record, op) ->
-                record.marker.render().bounce()
-          */
+      Ext.regModel('RemoteStation', {
+        fields: [
+          {
+            name: 'id',
+            type: 'int'
+          }, {
+            name: 'name',
+            type: 'string'
+          }, {
+            name: 'bikes',
+            type: 'int',
+            mapping: 'nbBikes'
+          }, {
+            name: 'free',
+            type: 'int',
+            mapping: 'nbEmptyDocks'
+          }, {
+            name: 'lat',
+            type: 'float'
+          }, {
+            name: 'long',
+            type: 'float'
+          }
+        ]
+      });
       stationStore = new Ext.data.Store({
-        model: 'Station',
+        model: 'LocalStation',
+        proxy: {
+          type: 'memory',
+          id: 'mtlbixi.stations'
+        },
+        autoLoad: true,
+        sorters: 'distance'
+      });
+      remoteStore = new Ext.data.Store({
+        model: 'RemoteStation',
         proxy: {
           type: 'scripttag',
           url: 'http://query.yahooapis.com/v1/public/yql?q=select%20station%20from%20xml%20where%20url%3D%22http%3A%2F%2Fprofil.bixi.ca%2Fdata%2FbikeStations.xml%22&format=json',
@@ -134,27 +161,61 @@
           }
         },
         autoLoad: true,
-        sorters: 'distance',
         listeners: {
+          add: function(self, records, start) {
+            return console.log.apply(console, ["Add"].concat(__slice.call(arguments)));
+          },
           load: function(self, records, succeeded) {
-            var record, _i, _len;
+            var changed, field, loaded, record, saved, _i, _j, _len, _len2, _ref;
+            loaded = [];
             for (_i = 0, _len = records.length; _i < _len; _i++) {
               record = records[_i];
-              record.commit(true);
+              saved = stationStore.getById(parseInt(record.getId()));
+              if (saved) {
+                changed = [];
+                _ref = ['name', 'bikes', 'free', 'lat', 'long'];
+                for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
+                  field = _ref[_j];
+                  if (saved.get(field) !== record.get(field)) {
+                    changed.push(field);
+                    saved.set(field, saved.get(field));
+                  }
+                }
+                if (changed.length) {
+                  saved.get('marker').render().bounce();
+                }
+              } else {
+                loaded.push(record.data);
+              }
             }
-            return refreshDistances();
+            if (loaded.length) {
+              stationStore.add(loaded);
+            }
+            refreshDistances();
+            return stationStore.sync();
           },
-          update: function(self, record, op) {
-            if (!initialLoad) {
-              record.get('marker').render().bounce();
-            }
-            return initialLoad = false;
+          update: function() {
+            return console.log.apply(console, ["Update"].concat(__slice.call(arguments)));
           }
         }
       });
+      window.getDistance = __bind(function(pos) {
+        return google.maps.geometry.spherical.computeDistanceBetween(pos, currentLocation);
+      }, this);
+      window.getTextDistance = __bind(function(pos) {
+        var dist, _ref;
+        if (dist = getDistance(pos)) {
+          return (_ref = dist > 1000) != null ? _ref : Math.round(dist / 100) / 10 + {
+            "km": dist + "m"
+          };
+        } else {
+          return "unknown";
+        }
+      }, this);
       stationList = {
         xtype: 'list',
         store: stationStore,
+        itemSelector: "div.mb-station-closest",
         itemTpl: '<div class="mb-station-list mb-station-closest">\
                   <h3>\
                     {name}\
@@ -230,8 +291,11 @@
           streetViewControl: false
         },
         listeners: {
-          beforeshow: function() {
+          beforeshow: function(self) {
             return stationStore.clearFilter();
+          },
+          show: function(self) {
+            return renderVisibleMarkers(self.map);
           },
           maprender: function(self, gmap) {
             return google.maps.event.addListener(gmap, 'idle', function() {
@@ -290,7 +354,9 @@
         autoUpdate: true,
         listeners: {
           locationupdate: function(self) {
+            var locationSupported;
             currentLocation = new google.maps.LatLng(self.latitude, self.longitude);
+            locationSupported = true;
             return refreshDistances();
           },
           locationerror: function(self, timeout, permission) {
@@ -305,13 +371,11 @@
         return stationStore.sort();
       };
       refreshStations = function() {
-        stationStore.each(function(station) {
-          return station.commit(true);
-        });
-        console.log("Changed records", stationStore.getUpdatedRecords());
-        return stationStore.sync();
+        initialLoad = false;
+        console.log("Initiating load");
+        return remoteStore.load();
       };
-      return setTimeout(refreshStations, 1000 * 15);
+      return setInterval(refreshStations, 1000 * 15);
     }
   });
 }).call(this);

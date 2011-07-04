@@ -22,7 +22,7 @@ class window.Marker
       position: @model.get('pos')
     
     google.maps.event.addListener @el, 'click', =>
-      console.log "Model", @model.getId(), @model, @model.store.getById(12)
+      console.log "Model", @model.getId(), @model
     
   render: =>
     @updateMarker()
@@ -52,16 +52,23 @@ class window.Marker
   updatePosition: ->
     @el.setPosition(new google.maps.LatLng(@model.get('lat'), @model.get('long')))
     return this
+App = {data:{}}
+
+
 
 Ext.setup
   onReady: ->
-    locationSupported = false
+    #App.data.ScriptTagProxy = Ext.extend Ext.data.ServerProxy,
+      #doRequest: ->
+      #  console.log "SciptTagProxy.doRequest", arguments...
+      
+    window.locationSupported = false
     currentLocation = new google.maps.LatLng(45.508903, -73.554153)
     initialLoad = true
     
     Ext.Anim.override({ disableAnimations: true })
     
-    Ext.regModel 'Station',
+    Ext.regModel 'LocalStation',
       fields: [
         { name: 'id', type: 'int' }
         { name: 'name', type: 'string' }
@@ -73,22 +80,34 @@ Ext.setup
         { name: 'pos', convert: (v, r) -> new google.maps.LatLng(r.get('lat'), r.get('long')) }
         { name: 'marker', convert: (v, r) -> new Marker(r) }
       ]
+
+        
+    Ext.regModel 'RemoteStation',
+      fields: [
+        { name: 'id', type: 'int' }
+        { name: 'name', type: 'string' }
+        { name: 'bikes', type: 'int', mapping: 'nbBikes' }
+        { name: 'free', type: 'int', mapping: 'nbEmptyDocks' }
+        { name: 'lat', type: 'float' }
+        { name: 'long', type: 'float' }
+      ]
     
-    ###
     stationStore = new Ext.data.Store
-      model: 'Station'
+      model: 'LocalStation'
       proxy:
-        type: 'localstorage'
+        type: 'memory'
         id: 'mtlbixi.stations'
       autoLoad: true
-      listeners:
-        update: (self, record, op) ->
-          record.marker.render().bounce()
-    ###
-      
+      sorters: 'distance'
+      #listeners:
+        #add: (self, records, succeeded) ->
+        #  for record in records
+        #    record.get('marker').render()
+        #update: (self, record, op) ->
+        #  record.get('marker').bounce() unless initialLoad
     
-    stationStore = new Ext.data.Store
-      model: 'Station'
+    remoteStore = new Ext.data.Store
+      model: 'RemoteStation'
       proxy:
         type: 'scripttag'
         url: 'http://query.yahooapis.com/v1/public/yql?q=select%20station%20from%20xml%20where%20url%3D%22http%3A%2F%2Fprofil.bixi.ca%2Fdata%2FbikeStations.xml%22&format=json'
@@ -97,21 +116,46 @@ Ext.setup
           root: 'query.results.stations'
           record: 'station'
       autoLoad: true
-      sorters: 'distance'
       listeners:
+        add: (self, records, start) ->
+          console.log "Add", arguments...
         load: (self, records, succeeded) ->
+          #console.log "Load", arguments...
+          loaded = []
           for record in records
-            record.commit(true)
-          refreshDistances()
-        update: (self, record, op) ->
-          record.get('marker').render().bounce() unless initialLoad
-          initialLoad = false
-          
-    
+            saved = stationStore.getById(parseInt(record.getId()))
+            if saved
+              #console.log "Saved", saved.data, "Record", record.data
+              changed = []
+              for field in ['name', 'bikes', 'free', 'lat', 'long']
+                #console.log saved.get('name'), field, saved.get(field), record.get(field)
+                if saved.get(field) != record.get(field)
+                  #console.log record.get('name'), field, record.get(field), saved.get(field)
+                  changed.push(field)
+                  saved.set(field, saved.get(field))
+              if changed.length
+                saved.get('marker').render().bounce()
+                #console.log saved.get('name'), changed
+            else loaded.push(record.data)
+          stationStore.add(loaded) if loaded.length
+          refreshDistances()# if initialLoad
+          stationStore.sync()
+        update: ->
+          console.log "Update", arguments...
+        
+    window.getDistance = (pos) =>
+      #if locationSupported
+      google.maps.geometry.spherical.computeDistanceBetween pos, currentLocation
+      
+    window.getTextDistance = (pos) =>
+      if dist = getDistance(pos)
+        return dist > 1000 ? Math.round(dist / 100) / 10 + "km" : dist + "m"
+      else "unknown"
+      
     stationList =
       xtype: 'list'
       store: stationStore
-      #itemSelector: "div.mb-station-closest"
+      itemSelector: "div.mb-station-closest"
       itemTpl:  '<div class="mb-station-list mb-station-closest">
                   <h3>
                     {name}
@@ -174,8 +218,10 @@ Ext.setup
         #center: new google.maps.LatLng(45.508903, -73.554153)
         streetViewControl: false
       listeners:
-        beforeshow: ->
+        beforeshow: (self) ->
           stationStore.clearFilter()
+        show: (self) ->
+          renderVisibleMarkers(self.map)
         maprender: (self, gmap) ->
           google.maps.event.addListener gmap, 'idle', ->
             renderVisibleMarkers(gmap)
@@ -224,8 +270,8 @@ Ext.setup
       autoUpdate: true
       listeners:
         locationupdate: (self) ->
-          
           currentLocation = new google.maps.LatLng(self.latitude, self.longitude)
+          locationSupported = true
           refreshDistances()
         locationerror: (self, timeout, permission) ->
           currentLocation = new google.maps.LatLng(45.508903, -73.554153) # Montreal
@@ -234,12 +280,17 @@ Ext.setup
       stationStore.each (station) ->
         station.set 'distance', google.maps.geometry.spherical.computeDistanceBetween station.get('pos'), currentLocation
       stationStore.sort()
+      #stationList.refresh() if stationStore instanceof Ext.List and locationSupported
     
     refreshStations = ->
-      stationStore.each (station) ->
-        station.commit(true)
-      console.log "Changed records", stationStore.getUpdatedRecords()
-      stationStore.sync()
+      #stationStore.each (station) ->
+      #  station.commit(true)
+      #console.log "Changed records", stationStore.getUpdatedRecords()
+      initialLoad = false
+      console.log "Initiating load"
+      remoteStore.load()
     
-    setTimeout refreshStations, 1000 * 15
+    setInterval refreshStations, 1000 * 15
+    
+    #refreshStations() #TEST
 
