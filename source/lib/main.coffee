@@ -20,8 +20,14 @@ class @Marker extends Backbone.View
       shape: Marker.markerShape
       position: new google.maps.LatLng(@model.get('lat'), @model.get('long'))
     
+    @render()
+    
+    @model.bind 'change', =>
+      @render()
+      @bounce()
+    
     google.maps.event.addListener @el, 'click', =>
-      console.log "Model", @model.getId(), @model
+      console.log "Model", @model.get('id'), @model
     
   render: =>
     @updateMarker()
@@ -56,17 +62,26 @@ class @Station extends Backbone.Model
 
 class @Stations extends Backbone.Collection
   model: Station
-  fetch: ->
+  fetch: =>
     me = @
     jQuery.ajax
       url: "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20xml%20where%20url%3D%22http%3A%2F%2Fprofil.bixi.ca%2Fdata%2FbikeStations.xml%22&format=json"
       dataType: "jsonp"
       success: (json) ->
-        unless me.length then me.refresh(json.query.results.stations.station)
+        parseStation = (data) ->
+          id: parseInt(data.id)
+          name: data.name
+          bikes: parseInt(data.nbBikes)
+          free: parseInt(data.nbEmptyDocks)
+          lat: parseFloat(data.lat)
+          long: parseFloat(data.long)
+          locked: data.locked == "true"
+        
+        unless me.length then me.refresh(_(json.query.results.stations.station).map(parseStation))
         else
-          for row in json.query.results.stations.station
-            if station = me.get(row.id) then station.set(row)
-            else me.add(row)
+          for data in json.query.results.stations.station
+            station = parseStation(data)
+            me.get(station.id).set(station)
 
 class @StationMap extends Backbone.View
   #el: $('#map_canvas')
@@ -76,20 +91,27 @@ class @StationMap extends Backbone.View
       mapTypeId: google.maps.MapTypeId.ROADMAP
       center: new google.maps.LatLng(45.508903, -73.554153)
       streetViewControl: false
+    
     @gmap = new google.maps.Map(document.getElementById('map_canvas'), gmapOptions)
     
     @collection.bind 'refresh', @render
     @collection.bind 'update', @render
+    @collection.bind 'add', @render
+    @collection.bind 'remove', @render
+    
+    google.maps.event.addListener @gmap, 'idle', =>
+      @render()
   
   render: =>
     gmap = @gmap
     bounds = gmap.getBounds()
     
     @collection.each (station) ->
-      if bounds.contains(station.marker.getPosition())
-        station.marker.setMap(gmap) unless station.marker.getMap()
+      marker = station.marker.render().el
+      if bounds.contains(marker.getPosition())
+        marker.setMap(gmap) unless marker.getMap()
       else
-        station.marker.setMap(null)
+        marker.setMap(null)
 
     @
 
@@ -97,9 +119,13 @@ class BikeApp extends Backbone.View
   initialize: ->
     @stations = new Stations
     @map = new StationMap(collection: @stations)
+    
+    @stations.fetch()
+    
+    setInterval(@stations.fetch, 1000 * 15)
 
 fixgeometry = ->
-  scroll(0, 1)
+  scroll(0, 0)
   
   header = $("div[data-role=header]:visible")
   footer = $("div[data-role=footer]:visible")
@@ -114,7 +140,4 @@ fixgeometry = ->
 
 $ ->
   $(window).bind("orientationchange resize pageshow", fixgeometry)
-  map = new StationMap
-  stations = new Stations
-  stations.bind 'refresh',
-  stations.fetch()
+  app = new BikeApp

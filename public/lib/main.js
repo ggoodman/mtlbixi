@@ -1,5 +1,5 @@
 (function() {
-  var fixgeometry;
+  var BikeApp, fixgeometry;
   var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }, __hasProp = Object.prototype.hasOwnProperty, __extends = function(child, parent) {
     for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; }
     function ctor() { this.constructor = child; }
@@ -31,10 +31,15 @@
       this.el = new google.maps.Marker({
         shadow: Marker.markerShadow,
         shape: Marker.markerShape,
-        position: this.model.get('pos')
+        position: new google.maps.LatLng(this.model.get('lat'), this.model.get('long'))
       });
+      this.render();
+      this.model.bind('change', __bind(function() {
+        this.render();
+        return this.bounce();
+      }, this));
       return google.maps.event.addListener(this.el, 'click', __bind(function() {
-        return console.log("Model", this.model.getId(), this.model);
+        return console.log("Model", this.model.get('id'), this.model);
       }, this));
     };
     Marker.prototype.render = function() {
@@ -79,11 +84,17 @@
     function Station() {
       Station.__super__.constructor.apply(this, arguments);
     }
+    Station.prototype.initialize = function() {
+      return this.marker = new Marker({
+        model: this
+      });
+    };
     return Station;
   })();
   this.Stations = (function() {
     __extends(Stations, Backbone.Collection);
     function Stations() {
+      this.fetch = __bind(this.fetch, this);
       Stations.__super__.constructor.apply(this, arguments);
     }
     Stations.prototype.model = Station;
@@ -94,15 +105,27 @@
         url: "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20xml%20where%20url%3D%22http%3A%2F%2Fprofil.bixi.ca%2Fdata%2FbikeStations.xml%22&format=json",
         dataType: "jsonp",
         success: function(json) {
-          var row, station, _i, _len, _ref, _results;
+          var data, parseStation, station, _i, _len, _ref, _results;
+          parseStation = function(data) {
+            return {
+              id: parseInt(data.id),
+              name: data.name,
+              bikes: parseInt(data.nbBikes),
+              free: parseInt(data.nbEmptyDocks),
+              lat: parseFloat(data.lat),
+              long: parseFloat(data.long),
+              locked: data.locked === "true"
+            };
+          };
           if (!me.length) {
-            return me.refresh(json.query.results.stations.station);
+            return me.refresh(_(json.query.results.stations.station).map(parseStation));
           } else {
             _ref = json.query.results.stations.station;
             _results = [];
             for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              row = _ref[_i];
-              _results.push((station = me.get(row.id)) ? station.set(row) : me.add(row));
+              data = _ref[_i];
+              station = parseStation(data);
+              _results.push(me.get(station.id).set(station));
             }
             return _results;
           }
@@ -125,16 +148,52 @@
         center: new google.maps.LatLng(45.508903, -73.554153),
         streetViewControl: false
       };
-      return this.el = new google.maps.Map(document.getElementById('map_canvas'), gmapOptions);
+      this.gmap = new google.maps.Map(document.getElementById('map_canvas'), gmapOptions);
+      this.collection.bind('refresh', this.render);
+      this.collection.bind('update', this.render);
+      this.collection.bind('add', this.render);
+      this.collection.bind('remove', this.render);
+      return google.maps.event.addListener(this.gmap, 'idle', __bind(function() {
+        return this.render();
+      }, this));
     };
     StationMap.prototype.render = function() {
+      var bounds, gmap;
+      gmap = this.gmap;
+      bounds = gmap.getBounds();
+      this.collection.each(function(station) {
+        var marker;
+        marker = station.marker.render().el;
+        if (bounds.contains(marker.getPosition())) {
+          if (!marker.getMap()) {
+            return marker.setMap(gmap);
+          }
+        } else {
+          return marker.setMap(null);
+        }
+      });
       return this;
     };
     return StationMap;
   })();
+  BikeApp = (function() {
+    __extends(BikeApp, Backbone.View);
+    function BikeApp() {
+      BikeApp.__super__.constructor.apply(this, arguments);
+    }
+    BikeApp.prototype.initialize = function() {
+      this.stations = new Stations;
+      this.map = new StationMap({
+        collection: this.stations
+      });
+      this.stations.fetch();
+      return setInterval(this.stations.fetch, 1000 * 15);
+    };
+    return BikeApp;
+  })();
   fixgeometry = function() {
     var content, content_height, footer, header, viewport_height;
-    scroll(0, 1);
+    scroll(0, 0);
     header = $("div[data-role=header]:visible");
     footer = $("div[data-role=footer]:visible");
     content = $("div[data-role=content]:visible");
@@ -144,10 +203,8 @@
     return content.height(content_height);
   };
   $(function() {
-    var map, stations;
+    var app;
     $(window).bind("orientationchange resize pageshow", fixgeometry);
-    map = new StationMap;
-    stations = new Stations;
-    return stations.fetch();
+    return app = new BikeApp;
   });
 }).call(this);
