@@ -21,7 +21,7 @@
     Marker.markerMixed = new google.maps.MarkerImage('/img/marker-mixed.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight);
     Marker.markerEmpty = new google.maps.MarkerImage('/img/marker-empty.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight);
     Marker.markerFull = new google.maps.MarkerImage('/img/marker-full.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight);
-    Marker.markerLocked = new google.maps.MarkerImage('/img/marker-disabled.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight);
+    Marker.markerLocked = new google.maps.MarkerImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAXCAYAAAAcP/9qAAACOklEQVR42sWVS4saQRDHfb8f4/uBD9CDeBBZxMdBjQYDejIHBSUQPAoDouBVWFD0IvoR9lvsdW85bs57Wrwse1nIXkKQhEpXQw/DRMj2rMkW/BmY7qlfdVV1jUbDYc1m83Mmk/kSCASejUYjmM1mcLlcv5LJ5FO5XL4WRfGD5pw2GAwufD7fQa/Xg9VqBbfbDX6/H4LBIIRCIfrMZrOw2+0et9vtZrlcpl8Nrdfrn3Q63dFgMODpKCQSiUAsFoN4PE6VTqdhs9nAfr8HcmpIJBIP4/H4vWporVZ7Rx5HPCmekkGVmk6nFLpYLMBkMgEJFHK53EE12G6348dgs9nA6/XS9Co1HA4pFEVqD2w/ZocEPOKGkohFdILROxwOemKlSENJ0Hw+T6GYHbafNN89N1gQhFvmCBtKqVQqBev1mkJ7vR6ForDb2R6LxYLvPvKyj+hIq9UCNpZcTqcT5vM5hc5mMwnKMiTfS95dclGLxeIzubfQarX+0Gg0klLc7XahWq2CfG+hUJAHc8MFJnfyJ3OuRpgVVWBS2x/YJOiAqVKpSI4bjQatI3Yw7guHw9IaGSDqT0zsu7x2qNVqRR33+31QruH1YWAcLrK1S17wrdzxZDKRHGNNsY6lUolmAcWCIkNHGRRfV0ejUZF9jJ39krq2220l9F7t8LpjTjweDx0SZLCcFNZamX41d5hap9O5II9vJxz+VSSQw2t/UALRV07w1bl+yQIn+Oz2JtCXwP+5vQn0FPy/m2robxiKwut7SnMmAAAAAElFTkSuQmCC', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight);
     Marker.markerShadow = new google.maps.MarkerImage('/img/marker-shadow.png', new google.maps.Size(46, 23), Marker.markerTopLeft, Marker.markerBottomRight);
     Marker.markerShape = {
       coord: [19, 0, 21, 1, 22, 2, 22, 3, 23, 4, 23, 5, 24, 6, 24, 7, 24, 8, 24, 9, 24, 10, 24, 11, 24, 12, 23, 13, 23, 14, 22, 15, 21, 16, 20, 17, 19, 18, 18, 19, 17, 20, 16, 21, 15, 22, 15, 22, 14, 21, 13, 20, 12, 19, 11, 18, 9, 17, 8, 16, 7, 15, 7, 14, 6, 13, 6, 12, 6, 11, 6, 10, 6, 9, 6, 8, 6, 7, 6, 6, 6, 5, 7, 4, 7, 3, 8, 2, 9, 1, 11, 0, 19, 0],
@@ -187,7 +187,7 @@
         collection: this.stations
       });
       this.stations.fetch();
-      return setInterval(this.stations.fetch, 1000 * 15);
+      return setInterval(this.stations.fetch, 1000 * 20);
     };
     return BikeApp;
   })();

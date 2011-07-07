@@ -6,7 +6,7 @@ class @Marker extends Backbone.View
   @markerMixed: new google.maps.MarkerImage('/img/marker-mixed.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight)
   @markerEmpty: new google.maps.MarkerImage('/img/marker-empty.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight)
   @markerFull: new google.maps.MarkerImage('/img/marker-full.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight)
-  @markerLocked: new google.maps.MarkerImage('/img/marker-disabled.png', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight)
+  @markerLocked: new google.maps.MarkerImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAXCAYAAAAcP/9qAAACOklEQVR42sWVS4saQRDHfb8f4/uBD9CDeBBZxMdBjQYDejIHBSUQPAoDouBVWFD0IvoR9lvsdW85bs57Wrwse1nIXkKQhEpXQw/DRMj2rMkW/BmY7qlfdVV1jUbDYc1m83Mmk/kSCASejUYjmM1mcLlcv5LJ5FO5XL4WRfGD5pw2GAwufD7fQa/Xg9VqBbfbDX6/H4LBIIRCIfrMZrOw2+0et9vtZrlcpl8Nrdfrn3Q63dFgMODpKCQSiUAsFoN4PE6VTqdhs9nAfr8HcmpIJBIP4/H4vWporVZ7Rx5HPCmekkGVmk6nFLpYLMBkMgEJFHK53EE12G6348dgs9nA6/XS9Co1HA4pFEVqD2w/ZocEPOKGkohFdILROxwOemKlSENJ0Hw+T6GYHbafNN89N1gQhFvmCBtKqVQqBev1mkJ7vR6ForDb2R6LxYLvPvKyj+hIq9UCNpZcTqcT5vM5hc5mMwnKMiTfS95dclGLxeIzubfQarX+0Gg0klLc7XahWq2CfG+hUJAHc8MFJnfyJ3OuRpgVVWBS2x/YJOiAqVKpSI4bjQatI3Yw7guHw9IaGSDqT0zsu7x2qNVqRR33+31QruH1YWAcLrK1S17wrdzxZDKRHGNNsY6lUolmAcWCIkNHGRRfV0ejUZF9jJ39krq2220l9F7t8LpjTjweDx0SZLCcFNZamX41d5hap9O5II9vJxz+VSSQw2t/UALRV07w1bl+yQIn+Oz2JtCXwP+5vQn0FPy/m2robxiKwut7SnMmAAAAAElFTkSuQmCC', Marker.markerSize, Marker.markerTopLeft, Marker.markerBottomRight)
   
   @markerShadow: new google.maps.MarkerImage('/img/marker-shadow.png', new google.maps.Size(46, 23), Marker.markerTopLeft, Marker.markerBottomRight)
   
@@ -122,7 +122,7 @@ class BikeApp extends Backbone.View
     
     @stations.fetch()
     
-    setInterval(@stations.fetch, 1000 * 15)
+    setInterval(@stations.fetch, 1000 * 20)
 
 fixgeometry = ->
   scroll(0, 0)
